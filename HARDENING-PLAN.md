@@ -10,7 +10,7 @@
 
 ## 1. Customer scenario
 
-A services firm with about 100 users who work from anywhere and meet clients and partners in Teams. Two administrators also run day-to-day IT, and there is no SOC. The customer is licensed for Microsoft 365 E7 with Microsoft Entra ID P2 / Entra Suite capabilities and Microsoft 365 Copilot and agent governance features available in the tenant, so the gap is configuration and operations, not budget.
+A services firm with about 100 users who work from anywhere and meet clients and partners in Teams. Two administrators also run day-to-day IT, and there is no SOC. The customer is licensed for Microsoft 365 E7 (Entra ID P2 and the Entra Suite, Microsoft 365 Copilot, and agent governance), so the gap is configuration and operations, not budget.
 
 Main risks:
 
@@ -21,7 +21,7 @@ Main risks:
 
 Design constraint: every control must be small enough for two people to deploy and keep running.
 
-## 1.5 Operational guardrails for a two-admin environment
+### Operational guardrails for a two-admin environment
 
 Because there is no SOC, every control must be simple enough to validate, log, and reverse quickly. The plan assumes that no policy is enforced unless the following are in place:
 
@@ -33,7 +33,7 @@ Because there is no SOC, every control must be simple enough to validate, log, a
 
 Every Conditional Access policy starts in report-only mode, and every exception stays temporary. The default assumption is to remove access when the business need expires, not to leave permanent carve-outs. This is the operational discipline needed to keep a no-SOC environment sustainable.
 
-### Exception and rollback process
+#### Exception and rollback process
 
 For every control that restricts access, the admins should maintain a short exception register with:
 
@@ -43,6 +43,8 @@ For every control that restricts access, the admins should maintain a short exce
 - Requested start and end date
 - Approval by the second administrator
 - Review date and final decision
+
+If the second administrator is unavailable, do not invent a standing exception. Use an emergency account only to restore access, record the action, and review the exception when the second administrator returns.
 
 Rollback must be explicit:
 
@@ -74,8 +76,8 @@ This plan does not repeat these controls. It builds on them and targets what the
 
 - **The report:** the Microsoft Digital Defense Report 2026 calls identity the primary control plane and names phishing-resistant MFA, passkeys and strong privileged-access enforcement among the best safeguards (controls 1 and 2).
 - **Microsoft's recommendations:** Entra security guidance calls for PIM, emergency accounts, restricted consent, and alerts on privileged and consent changes (controls 2, 4 and 5).
-- **Midnight Blizzard (2024):** the intrusion started with a password spray against a legacy test account without MFA and escalated through an over-privileged legacy OAuth app (controls 1, 2 and 4).
-- **Storm-2372 (device-code phishing):** it stole tokens that bypass MFA, which is why Microsoft advises blocking device-code flow and limiting it with Conditional Access (control 3).
+- **Midnight Blizzard (2024):** the intrusion started with a password spray against a legacy test account that had no MFA. That is the case for phishing-resistant MFA, least privilege, and reviewing old app access (controls 1, 2 and 4).
+- **Storm-2372 (device-code phishing):** attackers stole tokens that bypass MFA after the user approves a device-code prompt. The plan blocks device-code flow where it is not needed, after a report-only check (control 3).
 - **Salesloft Drift breach (2025):** stolen OAuth tokens from a trusted, over-permissioned integration exposed hundreds of organizations (control 4).
 - **Lesson learned:** a baseline MFA policy is not enough when sessions, apps and forgotten identities stay ungoverned, and a team of two needs detection that works without a SOC (control 5).
 
@@ -88,7 +90,7 @@ This plan does not repeat these controls. It builds on them and targets what the
 | 1 | Phishing-resistant MFA and passkeys: admins first, then executives and finance, then everyone | Entra ID P2 (Authentication Strengths), Temporary Access Pass |
 | 2 | Privileged access: eligible-only admin roles, two monitored emergency accounts, recurring access reviews | Entra ID P2 (PIM), Entra ID Governance (Entra Suite) |
 | 3 | Session and token protection: compliant-device access for sensitive apps, block device-code flow where not needed | Conditional Access, Intune |
-| 4 | Governed apps and AI agents: named owners, admin consent workflow, least privilege, quarterly review | Microsoft Entra admin consent workflow, app governance, Microsoft 365 Copilot/agent governance |
+| 4 | Governed apps and AI agents: named owners, admin consent workflow, least privilege, quarterly review | Entra admin consent workflow, Microsoft 365 Copilot, and agent governance |
 | 5 | Detection and response for a team of two: Safe Links and QR-phishing protection, automatic attack disruption, alerts to both admins | Defender XDR, Defender for Office 365 |
 
 ## 4. Control detail
@@ -134,7 +136,7 @@ Every change follows the same cycle: **check impact, pilot, enforce, monitor.** 
 
 | Step | Focus | Gate before moving on |
 |---|---|---|
-| 1. Fix the gaps | Verify MFA registration and role coverage for every account. Create and monitor two cloud-only emergency accounts. Passkeys for admins. | 100% of accounts MFA-capable |
+| 1. Fix the gaps | Verify MFA registration and role coverage for every account. Create and monitor two cloud-only emergency accounts. Passkeys for admins. | 100% of in-scope user accounts MFA-capable |
 | 2. Reduce privilege | Convert admin roles to PIM eligible. Run the first access review. | No standing admin access except emergency accounts |
 | 3. Enforce safely | Compliant-device and device-code policies in report-only, then enforced. Turn on Safe Links and attack disruption. | Report-only results clean, no support spike |
 | 4. Keep watching | Alerts, monthly review, quarterly review of roles, apps and agents. | Review log kept, actions closed |
@@ -170,7 +172,7 @@ This keeps the review from becoming a vague “check the portal” exercise.
 | Credential theft, MFA relay | Passkeys / phishing-resistant MFA | The report names these among the best safeguards | Account takeover much harder |
 | Standing admin access | PIM, access reviews, emergency accounts | Admin power exists only while used and is logged | Far smaller blast radius |
 | Session and token theft | Compliant-device Conditional Access, block device-code flow | MFA does not stop a stolen session | Stolen tokens far less useful |
-| Over-privileged apps and AI agents | Consent workflow, owners, Agent 365, quarterly review | Ungoverned agents are a named risk | Only reviewed access to company data |
+| Over-privileged apps and AI agents | Admin consent workflow, owners, quarterly review | Ungoverned agents are a named risk | Only reviewed access to company data |
 | Undetected phishing, no SOC | Defender XDR, Safe Links, alert routing | Faster containment without extra staff | Same-day triage |
 
 ## 7. How the overall security posture improves
@@ -181,9 +183,8 @@ The Phase 1 baseline covers the basics. This plan moves the customer from "contr
 
 | Measure | Baseline (measured) | Target |
 |---|---|---|
-| Accounts that are MFA-capable | 1 of 10 accounts checked by the assessment script on October 29, 2026 (not a full-tenant count) | 100% |
-| Accounts with phishing-resistant MFA enabled and tested | Not yet measured | 100% |
-| Users with verified MFA registration | Not yet measured | 100% in scope |
+| Accounts that are MFA-capable | 1 of 10 accounts checked by the assessment script on October 29, 2026 (not a full-tenant count) | 100% of in-scope user accounts |
+| Phishing-resistant MFA registered and tested | Not yet measured | 100% of admins first, then executives and finance, then remaining users in stages |
 | Permanent admin role assignments | Not yet measured | Emergency accounts only |
 | PIM role assignments with reviewed activation and reason | Not yet measured | 100% |
 | Unreviewed app and agent grants | Not yet measured | 0 |
@@ -191,7 +192,7 @@ The Phase 1 baseline covers the basics. This plan moves the customer from "contr
 | Time to triage a high-severity alert | Not yet measured | Same working day |
 | Emergency account use reviewed | Not yet measured | 100% within 1 business day |
 
-Only the MFA-capable baseline is a measured result. It comes from the accounts the Phase 1 assessment script checked, not from a full-tenant count. All targets are goals, not measured results. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
+Only the MFA-capable baseline is a measured result. It comes from the accounts the Phase 1 assessment script checked, not from a full-tenant count. All targets are goals, not measured results. Phishing-resistant MFA is enforced in stages, and each stage is enforced only after that group is registered and tested. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
 
 ## 8. Looking ahead
 
