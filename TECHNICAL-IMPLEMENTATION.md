@@ -20,6 +20,7 @@ This document describes how two administrators configure each of the five recomm
 | Microsoft Intune admin center | intune.microsoft.com | Device compliance, Windows Hello for Business policies | Intune Administrator |
 | Microsoft Defender portal | security.microsoft.com | Preset security policies, attack disruption prerequisites, alert notifications | Security Administrator |
 | Microsoft 365 admin center | admin.microsoft.com | Integrated apps, agent inventory **(verify)** | Global Reader for review; Global Administrator only when changing settings |
+| Azure portal | portal.azure.com | Azure Monitor alert rule for emergency account sign-ins | Monitoring Contributor |
 
 Use PIM activation (Control 2) for these roles once Control 2 is complete. Until then, sign in with the standard administrative accounts.
 
@@ -31,7 +32,7 @@ Entra admin center > **Entra ID** > **Groups** > **All groups** > **New group** 
 
 | Group | Purpose |
 |---|---|
-| `sg-emergency-access` | The two emergency accounts; excluded from blocking CA policies |
+| `sg-emergency-access` | The two emergency accounts; excluded from Conditional Access policies that block or restrict sign-in |
 | `sg-pilot-passkeys` | Pilot users for phishing-resistant MFA |
 | `sg-priority-accounts` | Executives and finance (Strict preset, stage 2 of passkey rollout) |
 | `sg-pilot-compliant-device` | Pilot users for the compliant-device policy |
@@ -43,17 +44,43 @@ Every exception group member needs a recorded owner, reason and expiry date in t
 
 ### 3.2 Create two emergency access accounts
 
+These steps follow Microsoft's guidance on [managing emergency access accounts](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access).
+
 1. Entra admin center > **Entra ID** > **Users** > **New user** > **Create new user**.
-2. Create two cloud-only accounts on the `*.onmicrosoft.com` domain, with non-descriptive names, not tied to a person.
-3. Set a long random password for each; store the credentials in two separate physical locations.
-4. Assign **Global Administrator** as an **active, permanent** assignment (**Entra ID** > **Roles & admins** > **Global Administrator** > **Add assignments**). Do not make these accounts PIM-eligible; they must work when activation or approval is not possible.
-5. Register a FIDO2 security key for each account (phishing-resistant authentication). Store keys separately.
-6. Add both accounts to `sg-emergency-access`.
-7. Test sign-in for both accounts and record the date. Retest at each quarterly review.
+2. Create two cloud-only accounts on the `*.onmicrosoft.com` domain. They must not be federated or synchronized from on-premises, and must not be associated with an individual user or an employee-supplied device.
+3. Assign **Global Administrator** as an **active, permanent** assignment in PIM (**Entra ID** > **Roles & admins** > **Global Administrator** > **Add assignments**). Do not make these accounts PIM-eligible; they must work when activation or approval is not possible.
+4. Choose a passwordless method that satisfies the mandatory MFA requirement: **Passkey (FIDO2)** (recommended) or certificate-based authentication if a PKI already exists. Use a method different from the one the normal administrator accounts use (for example, if administrators use Microsoft Authenticator, use FIDO2 security keys for the emergency accounts).
+5. Register the credential for each account. The credential or device must not expire and must not be in scope of automated cleanup for lack of use.
+6. Add both accounts to `sg-emergency-access`. Exclude this group from every Conditional Access policy that blocks or restricts sign-in. Report-only policies do not block access and do not require an exclusion.
+7. Store the credentials in secure, fireproof safes in separate locations. Authorized individuals use a designated secure workstation or Privileged Access Workstation when signing in with these accounts.
+8. Test sign-in and an administrative task for both accounts and record the date. Validate at least every 90 days, after IT staff changes, and when subscriptions change. Confirm that no multifactor authentication or self-service password reset method is registered to an individual's device or personal details.
 
-### 3.3 Alert on emergency account use
+### 3.3 Alert on emergency account use (Azure Monitor)
 
-Defender portal > **Hunting** > **Advanced hunting** > create a query on sign-in events for the two account UPNs (table `EntraIdSignInEvents` **(verify table availability)**) > **Create detection rule** > frequency: every hour > actions: generate alert, severity High. Add both administrators as recipients through the notification rule in Control 5.
+This procedure follows the [Monitor sign-in and audit logs](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access#monitor-sign-in-and-audit-logs) section of Microsoft's guidance. Microsoft Sentinel or another tool can be used instead.
+
+**Prerequisite:** send Microsoft Entra sign-in logs to a Log Analytics workspace (Entra admin center > **Monitoring & health** > **Diagnostic settings** > **Add diagnostic setting** > select **SignInLogs** (and **AuditLogs**) > **Send to Log Analytics workspace**). Workspace ingestion and alert rules can incur Azure charges; estimate before enabling.
+
+1. Entra admin center > **Entra ID** > **Users** > open each emergency account > copy the **Object ID**.
+2. Azure portal (at least Monitoring Contributor) > **Monitor** > **Alerts** > **+ Create** > **Alert rule**.
+3. **Scope** tab: select the Log Analytics workspace that receives the sign-in logs > **Apply**.
+4. **Condition** tab: **Signal name** > **Custom log search**; **Query type**: **Aggregated logs**; **Search query**:
+
+   ```kusto
+   SigninLogs
+   | where UserId == "<object-id-account-1>" or UserId == "<object-id-account-2>"
+   | project TimeGenerated, UserPrincipalName, UserId, IPAddress, ResultType, ResultDescription
+   ```
+
+5. **Measurement**: choose the measure, aggregation type and granularity. Under **Split by dimensions**, select the **Resource ID column**. **Alert logic**: threshold type **Static**, operator **Greater than**, threshold value **0**, frequency of evaluation as often as the administrators want the query to run.
+6. **Actions** tab: select or create an action group (**Notification type**: **Email/SMS message/Push/Voice**; add both administrators; use a display name of at most 12 characters).
+7. **Details** tab: **Severity**: **0 - Critical**; name the rule; select the region and identity used to run the query; under **Advanced options** select **Enable upon creation**.
+8. **Review + create** > **Create**.
+9. Run a drill: sign in with an emergency account during a planned test, confirm both administrators receive the alert, and record the date.
+
+**Post-mortem:** if the alert fires, preserve the Entra and workload logs and review whether the use was a planned drill, a real emergency, or misuse. Examine the actions taken by the person who used the account.
+
+The object IDs are tenant identifiers. Do not publish them in this repository.
 
 ### 3.4 Check MFA registration coverage
 
@@ -113,7 +140,7 @@ Entra admin center > **Entra ID** > **Identity Governance** > **Privileged Ident
 | On activation, require | **Azure MFA**, or **Microsoft Entra Conditional Access authentication context** (see 5.2) |
 | Require justification on activation | Yes |
 | Require ticket information | Optional; use the change log reference |
-| Require approval to activate | Global Administrator only; approver is the other administrator |
+| Require approval to activate | Global Administrator only; approver is the other administrator. Never leave the approver list empty, and never make every Global Administrator and Privileged Role Administrator assignment eligible with approval required without an active emergency account (see 3.2) |
 | Notifications | Send to both administrators |
 | Allow permanent eligible assignment | No; set expiration (for example 12 months) |
 | Allow permanent active assignment | No (emergency accounts are assigned directly, outside PIM settings) |
@@ -134,7 +161,9 @@ Entra admin center > **Entra ID** > **Identity Governance** > **Privileged Ident
 
 ### 5.4 Recurring access review
 
-PIM > **Microsoft Entra roles** > **Access reviews** > **New** (or Entra ID > **Identity Governance** > **Access reviews** > **New access review** **(verify path)**).
+- **Privileged roles:** Entra admin center > **ID Governance** > **Privileged Identity Management** > **Microsoft Entra roles** > **Access reviews** > **New**.
+- **Groups and applications:** Entra admin center > **ID Governance** > **Access reviews** > **New access review** (used in Control 4 for application assignments and in 3.1 for exception groups).
+- **Reviewers complete assigned reviews** at [myaccess.microsoft.com](https://myaccess.microsoft.com/) > **Access reviews**.
 
 | Setting | Value |
 |---|---|
@@ -217,6 +246,7 @@ Note: only Global Administrators can approve requests for Microsoft Graph applic
 3. Remove unused applications and revoke excessive grants (**Permissions** > **Review permissions**).
 4. Assign at least one owner to every retained application (**Owners** > **Add**).
 5. Record in a register (SharePoint list): application, owner, business purpose, permissions, date reviewed.
+6. Optional: create a quarterly access review of application assignments (**ID Governance** > **Access reviews** > **New access review** > applications).
 
 ### 7.4 AI agents and integrated apps
 
@@ -242,7 +272,9 @@ Defender portal > **Email & collaboration** > **Policies & rules** > **Threat po
 3. On the impersonation step, add executives and finance approvers as protected users.
 4. Order of precedence is Strict, then Standard, then custom policies; custom policies do not override a preset.
 
-Verify Safe Links behavior (Threat policies > **Safe Links** > view the policy applied by the preset): URL scanning of email, time-of-click checks, and protection in Teams and Office apps. QR-code phishing detection is part of Defender for Office 365 protection; no separate toggle was verified for this document **(verify)**.
+Verify Safe Links behavior (Threat policies > **Safe Links** > view the policy applied by the preset): URL scanning of email, time-of-click checks, and protection in Teams and Office apps.
+
+**QR-code phishing:** there is no separate administrator-facing toggle. Microsoft extracts URLs from QR-code images and evaluates them with the other message signals (sender intelligence, headers, content, reputation) in the existing threat-detection pipeline. Defender for Office 365 Plan 1 and Plan 2 can also detonate extracted URLs. The presence of a QR code alone does not determine the verdict. Administrative work is limited to reviewing the protection policies and mail-flow exceptions (for example transport rules or allow entries that bypass filtering), and submitting missed detections and false positives for analysis. See the [Microsoft Tech Community article on QR-code phishing](https://techcommunity.microsoft.com/blog/microsoftdefenderforoffice365blog/protect-your-organizations-against-qr-code-phishing-with-defender-for-office-365/4007041).
 
 ### 8.2 Automatic attack disruption prerequisites
 
@@ -263,7 +295,7 @@ Attack disruption is built in when the licensing and Defender products are deplo
 
 | Week | Activities | Gate |
 |---|---|---|
-| 1 | Section 3 (groups, emergency accounts, registration report); enable FIDO2 and TAP for admins; admin passkeys | All administrators hold a passkey; emergency accounts tested |
+| 1 | Section 3 (groups, emergency accounts, Azure Monitor alert, registration report); enable FIDO2 and TAP for admins; admin passkeys | All administrators hold a passkey; emergency accounts tested; alert drill passed |
 | 2 | `CA-ADMIN-PhishResistantMFA` report-only then On; PIM role settings; convert roles to eligible | No standing admin access except emergency accounts |
 | 3 | Intune compliance policy; device-code policy in report-only; `CA-SENSITIVE-CompliantDevice` report-only for pilot | Report-only reviewed; exceptions documented |
 | 4 | Preset security policies; attack disruption prerequisites; alert routing; admin consent workflow; app inventory | Test alert received by both administrators |
@@ -278,13 +310,14 @@ Adjust the schedule to the customer's change windows. Do not run two enforcement
 |---|---|---|---|
 | Weekly | Triage incidents and risky users; check Action center | Defender portal; Entra ID Protection | About 15 minutes |
 | Monthly | Review PIM activations, CA changes (audit logs), consent and agent requests, success measures, exception group expiry | Entra admin center | About 2 hours |
-| Quarterly | Access review of admin roles; app and agent register review; emergency account test; recovery procedure test | Entra admin center; M365 admin center | Half day |
+| Quarterly (at most every 90 days) | Access review of admin roles; app and agent register review; emergency account drill and alert test; recovery procedure test | Entra admin center; M365 admin center; Azure Monitor | Half day |
 
 Times are planning estimates, not measured results.
 
 ## 11. Validation checklist
 
-- [ ] Both emergency accounts tested and excluded from blocking policies.
+- [ ] Both emergency accounts tested, use a passwordless method different from the administrator accounts, and are excluded from blocking policies.
+- [ ] Azure Monitor alert for emergency account sign-ins fired during a drill and reached both administrators.
 - [ ] Registration report shows 100% MFA-capable for in-scope accounts.
 - [ ] Admins can sign in only with phishing-resistant methods.
 - [ ] Every admin role is eligible; PIM activation tested by both administrators.
@@ -305,6 +338,9 @@ Times are planning estimates, not measured results.
 
 ## 13. Sources
 
+- [Manage emergency access accounts in Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access)
+- [Protect your organization against QR code phishing with Defender for Office 365](https://techcommunity.microsoft.com/blog/microsoftdefenderforoffice365blog/protect-your-organizations-against-qr-code-phishing-with-defender-for-office-365/4007041)
+- [Perform an access review (myaccess.microsoft.com)](https://learn.microsoft.com/en-us/entra/id-governance/perform-access-review)
 - [Require phishing-resistant MFA for administrators](https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-admin-phish-resistant-mfa)
 - [Block authentication flows with Conditional Access](https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-block-authentication-flows)
 - [Conditional Access: authentication flows](https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-authentication-flows)
