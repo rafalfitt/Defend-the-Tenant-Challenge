@@ -38,7 +38,12 @@ This plan does not repeat these controls. It builds on them and targets what the
 
 ### Why these controls were chosen
 
-The selection rests on three converging sources. The Microsoft Digital Defense Report 2026 calls identity the primary control plane and names phishing-resistant MFA, passkeys and strong privileged-access enforcement among the best safeguards, and Microsoft's Entra security guidance calls for PIM, emergency accounts, restricted consent, and alerts on privileged and consent changes. Recent real-world incidents confirm the priorities: the 2024 Midnight Blizzard intrusion started with a password spray against a legacy test account without MFA and escalated through an over-privileged legacy OAuth app (controls 1, 2 and 4), and Storm-2372's device-code phishing stole tokens that bypass MFA, which is why Microsoft advises blocking device-code flow and limiting it with Conditional Access (control 3). The 2025 Salesloft Drift breach showed how stolen OAuth tokens from a trusted, over-permissioned integration exposed hundreds of organizations (control 4). The lesson in each case is that a baseline MFA policy is not enough when sessions, apps and forgotten identities stay ungoverned, and a team of two needs detection that works without a SOC (control 5).
+- **The report:** the Microsoft Digital Defense Report 2026 calls identity the primary control plane and names phishing-resistant MFA, passkeys and strong privileged-access enforcement among the best safeguards (controls 1 and 2).
+- **Microsoft's recommendations:** Entra security guidance calls for PIM, emergency accounts, restricted consent, and alerts on privileged and consent changes (controls 2, 4 and 5).
+- **Midnight Blizzard (2024):** the intrusion started with a password spray against a legacy test account without MFA and escalated through an over-privileged legacy OAuth app (controls 1, 2 and 4).
+- **Storm-2372 (device-code phishing):** it stole tokens that bypass MFA, which is why Microsoft advises blocking device-code flow and limiting it with Conditional Access (control 3).
+- **Salesloft Drift breach (2025):** stolen OAuth tokens from a trusted, over-permissioned integration exposed hundreds of organizations (control 4).
+- **Lesson learned:** a baseline MFA policy is not enough when sessions, apps and forgotten identities stay ungoverned, and a team of two needs detection that works without a SOC (control 5).
 
 ## 3. Recommended controls (ranked)
 
