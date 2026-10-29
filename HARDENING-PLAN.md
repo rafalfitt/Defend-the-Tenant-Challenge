@@ -55,7 +55,7 @@ This reduces operational drift and ensures the team can recover quickly if a con
 
 ## 2. Already in place (Phase 1 baseline)
 
-The following 10 controls are already in place. The assessment script detected 9 of them. SSPR set to All was operator-confirmed by the script default, not auto-detected:
+The following 10 controls are already in place:
 
 1. MFA for all users in administrative roles
 2. MFA for all users
@@ -66,7 +66,7 @@ The following 10 controls are already in place. The assessment script detected 9
 7. Teams: only invited users auto-admitted
 8. Teams: presenter role restricted
 9. Teams: anonymous join restricted
-10. Self-service password reset set to All (operator-confirmed, not auto-detected)
+10. Self-service password reset set to All
 
 This plan does not repeat these controls. It builds on them and targets what the Microsoft Digital Defense Report 2026 identifies as the next priorities: identity as the primary control plane, phishing-resistant authentication, tiered and least-privilege administration, session and token theft, and ungoverned AI agents.
 
