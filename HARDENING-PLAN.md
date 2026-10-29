@@ -36,6 +36,10 @@ The following 10 controls are already in place, as verified by the Phase 1 asses
 
 This plan does not repeat these controls. It builds on them and targets what the Microsoft Digital Defense Report 2026 identifies as the next priorities: identity as the primary control plane, phishing-resistant authentication, tiered and least-privilege administration, session and token theft, and ungoverned AI agents.
 
+### Why these controls were chosen
+
+The selection rests on three converging sources. The Microsoft Digital Defense Report 2026 calls identity the primary control plane and names phishing-resistant MFA, passkeys and strong privileged-access enforcement among the best safeguards, and Microsoft's Entra security guidance calls for PIM, emergency accounts, restricted consent, and alerts on privileged and consent changes. Recent real-world incidents confirm the priorities: the 2024 Midnight Blizzard intrusion started with a password spray against a legacy test account without MFA and escalated through an over-privileged legacy OAuth app (controls 1, 2 and 4), and Storm-2372's device-code phishing stole tokens that bypass MFA, which is why Microsoft advises blocking device-code flow and limiting it with Conditional Access (control 3). The 2025 Salesloft Drift breach showed how stolen OAuth tokens from a trusted, over-permissioned integration exposed hundreds of organizations (control 4). The lesson in each case is that a baseline MFA policy is not enough when sessions, apps and forgotten identities stay ungoverned, and a team of two needs detection that works without a SOC (control 5).
+
 ## 3. Recommended controls (ranked)
 
 **Ranking method (risk-based):** each control was scored on (1) the likelihood and impact of the attack path it closes, (2) fit with this customer's context, and (3) the effort required of two admins using licenses already owned. Controls scoring high on risk and low on effort came first.
@@ -143,6 +147,7 @@ Targets are goals, not measured results.
 3. [Best practices to secure with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/architecture/secure-best-practices)
 4. [Baseline Security Mode settings](https://learn.microsoft.com/en-us/microsoft-365/baseline-security-mode/baseline-security-mode-settings?view=o365-worldwide)
 5. [Phishing-resistant MFA, Secure Future Initiative guidance](https://learn.microsoft.com/en-us/security/zero-trust/sfi/phishing-resistant-mfa)
+6. [Midnight Blizzard: Guidance for responders on nation-state attack (Microsoft Security Blog)](https://www.microsoft.com/en-us/security/blog/2024/01/25/midnight-blizzard-guidance-for-responders-on-nation-state-attack/)
 
 ---
 
