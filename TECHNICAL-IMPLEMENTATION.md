@@ -2,7 +2,7 @@
 
 **Companion to [HARDENING-PLAN.md](HARDENING-PLAN.md). Scenario: 100 users, two administrators, no SOC, Microsoft 365 E7.**
 
-This document describes how two administrators configure each of the five recommended controls through the admin portals. It is a Phase 2 proposal for a fictional customer. It contains no tenant identifiers, secrets or production data. Portal labels change over time; where a menu path was not verified against current documentation, it is marked **(verify)**.
+This document describes how two administrators configure each of the five recommended controls through the admin portals. It is a Phase 2 proposal for a fictional customer. It contains no tenant identifiers, secrets or production data. Portal labels change over time; confirm each path in the tenant before use, and check that the required licenses and roles are present.
 
 ## 1. Principles
 
@@ -17,9 +17,9 @@ This document describes how two administrators configure each of the five recomm
 | Portal | URL | Used for | Minimum role for the task |
 |---|---|---|---|
 | Microsoft Entra admin center | entra.microsoft.com | Authentication methods, Conditional Access, PIM, access reviews, enterprise apps, ID Protection | Conditional Access Administrator; Authentication Policy Administrator; Privileged Role Administrator; Global Administrator for admin consent workflow settings |
-| Microsoft Intune admin center | intune.microsoft.com | Device compliance, Windows Hello for Business policies | Intune Administrator |
-| Microsoft Defender portal | security.microsoft.com | Preset security policies, attack disruption prerequisites, alert notifications | Security Administrator |
-| Microsoft 365 admin center | admin.microsoft.com | Integrated apps, agent inventory **(verify)** | Global Reader for review; Global Administrator only when changing settings |
+| Microsoft Intune admin center | intune.microsoft.com | Device compliance, Defender for Endpoint integration, Windows Hello for Business policies | Intune Administrator; Endpoint Security Manager for the Defender for Endpoint connection |
+| Microsoft Defender portal | security.microsoft.com | Preset security policies, attack disruption prerequisites, incident notifications | Security Administrator (Manage security settings permission) |
+| Microsoft 365 admin center | admin.microsoft.com | Integrated apps, agent registry | Role with access to the Agents pages; AI Administrator for agent management actions and the agent registry Graph API |
 | Azure portal | portal.azure.com | Azure Monitor alert rule for emergency account sign-ins | Monitoring Contributor |
 
 Use PIM activation (Control 2) for these roles once Control 2 is complete. Until then, sign in with the standard administrative accounts.
@@ -38,7 +38,7 @@ Entra admin center > **Entra ID** > **Groups** > **All groups** > **New group** 
 | `sg-pilot-compliant-device` | Pilot users for the compliant-device policy |
 | `sg-ca-exception-device-code` | Documented exceptions for device code flow (starts empty) |
 | `sg-ca-exception-compliant-device` | Documented exceptions for the compliant-device policy (starts empty) |
-| `sg-security-alerts` | Both administrators; alert recipients |
+| `sg-security-alerts` | Membership list of both administrators (for example for Azure Monitor action groups and ownership records). Defender notification rules use explicit mailbox addresses, not this group |
 
 Every exception group member needs a recorded owner, reason and expiry date in the change log.
 
@@ -180,21 +180,46 @@ Entra admin center > **Entra ID** > **Identity Governance** > **Privileged Ident
 
 **Gate:** report-only results show no unexplained impact; no support spike during the pilot.
 
-### 6.1 Intune compliance policy (prerequisite)
+Enforcement chain: Defender for Endpoint machine risk, then Intune compliance status, then the Conditional Access policy that requires a compliant device. The compliance policy sets the status; only the enabled Conditional Access policy restricts resource access.
 
-Intune admin center > **Devices** > **Compliance** > **Create policy** > **Windows 10 and later**.
+### 6.1 Defender for Endpoint and Intune integration (prerequisites)
+
+Roles: Security Administrator (or the Manage security settings permission) in the Defender portal, and Endpoint Security Manager (or equivalent Mobile Threat Defense rights) in Intune. See [Configure Defender for Endpoint with Intune](https://learn.microsoft.com/en-us/intune/device-security/microsoft-defender/configure-integration).
+
+1. Defender portal > **System** > **Settings** > **Endpoints** > **General** > **Advanced features**: set **Intune connection** to **On** > **Save preferences**.
+2. Intune admin center > **Endpoint security** > **Defender for Endpoint**: confirm **Connection status** is **Enabled** (it can take up to 15 minutes to update).
+3. Under **Compliance policy evaluation**, set **Connect Windows devices to Defender for Endpoint** to **On** > **Save**. Enable the iOS/iPadOS and Android switches only if those platforms access sensitive apps.
+4. Onboard the in-scope Windows devices: Intune admin center > **Endpoint security** > **Endpoint detection and response** > **EDR Onboarding Status** > **Deploy preconfigured policy** (all Windows devices), or **Create policy** for a custom scope with **Auto from connector** as the client configuration package type.
+5. Verify onboarding: devices appear in the Defender portal under **Endpoints** > **Device inventory**, and **EDR Onboarding Status** shows successful onboarding. Verify risk reporting before enforcing access.
+
+The service-to-service connection, the platform compliance-evaluation switch and device onboarding are separate steps; enabling the connector alone does not complete the deployment.
+
+### 6.2 Intune compliance policy
+
+Intune admin center > **Devices** > **Compliance** > **Policies** > **Create policy** > **Windows 10 and later**.
 
 | Area | Recommended setting |
 |---|---|
 | Device Health | Require BitLocker; require Secure Boot; require code integrity |
 | Device Properties | Minimum OS version aligned to the supported Windows 11 release |
 | System Security | Require firewall; require antivirus and anti-spyware; require password to unlock |
-| Microsoft Defender for Endpoint | Maximum allowed machine risk score: Medium **(verify requires Defender for Endpoint connection)** |
+| Microsoft Defender for Endpoint | **Require the device to be at or under the machine risk score**: **Medium** (pilot value; see the threshold table below) |
 | Actions for noncompliance | Mark noncompliant immediately; send email at day 1; retire after a documented period |
 
 Assign to the device or user groups. Create equivalent policies for iOS/iPadOS and Android only if those platforms access sensitive apps.
 
-### 6.2 Conditional Access: compliant device (pilot first)
+**Machine risk threshold.** The threshold is inclusive: the device may be at the selected level or below it. It evaluates Defender for Endpoint machine risk, not Entra user risk or sign-in risk. Passing this setting does not override other compliance requirements.
+
+| Threshold | Machine risk levels that pass | Levels that fail |
+|---|---|---|
+| Clear | Clear | Low, Medium, High |
+| Low | Clear, Low | Medium, High |
+| Medium | Clear, Low, Medium | High |
+| High | All levels | None based on risk alone |
+
+Microsoft's integration guide recommends **Low** as the best balance of security and productivity for most organizations. This plan starts the pilot at **Medium**, which blocks only high-risk devices, and tightens to **Low** after the report-only review shows acceptable impact. Record the chosen threshold and the reason in the change log; moving to Low is a security-policy change, not a wording change.
+
+### 6.3 Conditional Access: compliant device (pilot first)
 
 | Setting | Value |
 |---|---|
@@ -205,9 +230,9 @@ Assign to the device or user groups. Create equivalent policies for iOS/iPadOS a
 | Grant | **Require device to be marked as compliant** |
 | Enable policy | **Report-only** |
 
-Plan for personal devices: either enroll them, give access through a browser-only policy with session controls, or place the user in the documented exception group with an expiry date.
+Wait at least 24 hours for sign-in data to accumulate, then review the **Report-only** results in the sign-in logs. Plan for personal devices: either enroll them, give access through a browser-only policy with session controls, or place the user in the documented exception group with an expiry date.
 
-### 6.3 Conditional Access: block device code flow
+### 6.4 Conditional Access: block device code flow
 
 1. **Conditional Access** > **Policies** > **New policy**; name `CA-ALL-BlockDeviceCodeFlow`.
 2. **Users**: include **All users**; exclude `sg-emergency-access` and `sg-ca-exception-device-code`.
@@ -251,9 +276,12 @@ Note: only Global Administrators can approve requests for Microsoft Graph applic
 ### 7.4 AI agents and integrated apps
 
 - Microsoft 365 admin center > **Settings** > **Integrated apps**: review deployed Copilot extensions and agents; remove unused ones and restrict deployment to named users.
-- Review agents in the agent inventory provided by the licensed Agent 365 / Microsoft Entra Agent ID capabilities **(verify current portal path and capabilities in the tenant; this document does not assume a menu path)**.
-- Apply the same register fields: owner, purpose, permissions, last review date.
+- Microsoft 365 admin center > **Agents** > **All Agents** > **Registry**: review the agent inventory, identify agents without owners (the **Agents without owners** card filters the list), and export the list (**Export**, CSV) for the governance register. Review each retained agent's owner, business purpose, permissions and last review date. **Agents** > **Overview** is the summary dashboard, not the inventory.
+- Agent risk signals in the registry require an E7 or Agent 365 license (**Billing** > **Licenses** > **Subscriptions** shows the subscriptions). The updated risk-details pane is rolling out gradually, so the interface may differ by region. Counts can lag the security portals by up to an hour.
+- Entries can appear more than once with different publisher types (for example **Shared by creator** and **Published by your org**). This is by design; do not treat it as an inventory error. Removing one entry does not remove the other.
 - Approve a short pre-approved list of vendors to reduce approval delay.
+
+See [Manage agent registry in Microsoft 365 admin center](https://learn.microsoft.com/en-us/microsoft-agent-365/admin/agent-registry-overview).
 
 ### 7.5 Operating the workflow
 
@@ -287,9 +315,18 @@ Attack disruption is built in when the licensing and Defender products are deplo
 
 ### 8.3 Alert routing to both administrators
 
-- Defender portal > **Settings** > **Microsoft Defender XDR** > **Email notifications** > **Incidents** > **Add item**: severity **High** (optionally Medium), recipients `sg-security-alerts` or both mailboxes **(verify menu label)**.
-- Entra admin center > **Entra ID** > **ID Protection** > **Notifications**: enable users-at-risk email alerts and the weekly digest, recipients both administrators.
-- Send a test alert or review a recent incident to prove delivery. Record the date.
+**Defender XDR incident notifications.** Defender portal > **Settings** > **Microsoft Defender XDR** > **Email notifications** (under **General**) > **Incidents** tab > **Add incident notification rule**.
+
+1. **Basics**: enter a rule name and description > **Next**.
+2. **Notification settings**: set **Alert severity** to **High** (optionally also **Medium**); set **Device group scope** to all device groups unless a narrower scope is needed. Optionally select **Send only one notification per incident**.
+3. **Recipients**: type the email address of each administrator and select **Add** after each address. Do not enter `sg-security-alerts`; the wizard requires email addresses. Select **Send test email** and confirm delivery to both administrators.
+4. **Review rule** > **Create rule**.
+
+Required permission: **Manage security settings**. With basic permissions management, the Security Administrator role is sufficient; Global Administrator is not needed. This is the cross-workload incident notification; do not confuse it with the endpoint alert notifications under **Settings** > **Endpoints** > **General** > **Email notifications**, which use **Add item**. See [Get incident notifications by email](https://learn.microsoft.com/en-us/defender-xdr/m365d-notifications-incidents).
+
+**Entra ID Protection.** Entra admin center > **Entra ID** > **ID Protection** > **Notifications**: enable users-at-risk email alerts and the weekly digest, recipients both administrators.
+
+Record the date of the successful test email and of the Azure Monitor drill (3.3).
 
 ## 9. Rollout schedule
 
@@ -297,8 +334,8 @@ Attack disruption is built in when the licensing and Defender products are deplo
 |---|---|---|
 | 1 | Section 3 (groups, emergency accounts, Azure Monitor alert, registration report); enable FIDO2 and TAP for admins; admin passkeys | All administrators hold a passkey; emergency accounts tested; alert drill passed |
 | 2 | `CA-ADMIN-PhishResistantMFA` report-only then On; PIM role settings; convert roles to eligible | No standing admin access except emergency accounts |
-| 3 | Intune compliance policy; device-code policy in report-only; `CA-SENSITIVE-CompliantDevice` report-only for pilot | Report-only reviewed; exceptions documented |
-| 4 | Preset security policies; attack disruption prerequisites; alert routing; admin consent workflow; app inventory | Test alert received by both administrators |
+| 3 | Defender-Intune integration and device onboarding; Intune compliance policy; device-code policy in report-only; `CA-SENSITIVE-CompliantDevice` report-only for pilot | Devices onboarded and reporting risk; report-only reviewed; exceptions documented |
+| 4 | Preset security policies; attack disruption prerequisites; incident notification rule; admin consent workflow; app and agent inventory | Test email received by both administrators |
 | 5-6 | Enforce device code policy and compliant-device pilot; extend passkeys to priority accounts | No unexplained support spike |
 | 7-12 | Passkeys for all users in stages; first access review; first monthly review | Review log kept; actions closed |
 
@@ -310,7 +347,7 @@ Adjust the schedule to the customer's change windows. Do not run two enforcement
 |---|---|---|---|
 | Weekly | Triage incidents and risky users; check Action center | Defender portal; Entra ID Protection | About 15 minutes |
 | Monthly | Review PIM activations, CA changes (audit logs), consent and agent requests, success measures, exception group expiry | Entra admin center | About 2 hours |
-| Quarterly (at most every 90 days) | Access review of admin roles; app and agent register review; emergency account drill and alert test; recovery procedure test | Entra admin center; M365 admin center; Azure Monitor | Half day |
+| Quarterly (at most every 90 days) | Access review of admin roles; app and agent register review against the Agent Registry; emergency account drill and alert test; recovery procedure test | Entra admin center; M365 admin center; Azure Monitor | Half day |
 
 Times are planning estimates, not measured results.
 
@@ -321,10 +358,11 @@ Times are planning estimates, not measured results.
 - [ ] Registration report shows 100% MFA-capable for in-scope accounts.
 - [ ] Admins can sign in only with phishing-resistant methods.
 - [ ] Every admin role is eligible; PIM activation tested by both administrators.
+- [ ] Defender for Endpoint connection enabled, Windows devices onboarded, machine risk threshold recorded.
 - [ ] Report-only results reviewed and documented before each enforcement.
 - [ ] Device-code exceptions have an owner and expiry date.
-- [ ] Every enterprise app and agent has an owner and recorded purpose.
-- [ ] Preset security policies assigned; test alert delivered to both administrators.
+- [ ] Every enterprise app and agent has an owner and recorded purpose; no agents without owners remain in the registry.
+- [ ] Preset security policies assigned; incident notification test email delivered to both administrators.
 - [ ] Change log records who changed what, when, and the rollback decision.
 
 ## 12. Rollback reference
@@ -335,10 +373,14 @@ Times are planning estimates, not measured results.
 | PIM conversion | Re-add a permanent active assignment through an emergency account |
 | Passkey method | Remove the group from the method target; issue a Temporary Access Pass for recovery |
 | Preset policy | Remove the group scope under Preset security policies |
+| Machine risk threshold | Raise the threshold in the compliance policy (for example Low back to Medium) and record the reason |
 
 ## 13. Sources
 
 - [Manage emergency access accounts in Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access)
+- [Manage agent registry in Microsoft 365 admin center](https://learn.microsoft.com/en-us/microsoft-agent-365/admin/agent-registry-overview)
+- [Get incident notifications by email (Defender XDR)](https://learn.microsoft.com/en-us/defender-xdr/m365d-notifications-incidents)
+- [Configure Microsoft Defender for Endpoint with Intune and onboard devices](https://learn.microsoft.com/en-us/intune/device-security/microsoft-defender/configure-integration)
 - [Protect your organization against QR code phishing with Defender for Office 365](https://techcommunity.microsoft.com/blog/microsoftdefenderforoffice365blog/protect-your-organizations-against-qr-code-phishing-with-defender-for-office-365/4007041)
 - [Perform an access review (myaccess.microsoft.com)](https://learn.microsoft.com/en-us/entra/id-governance/perform-access-review)
 - [Require phishing-resistant MFA for administrators](https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-admin-phish-resistant-mfa)
