@@ -109,13 +109,15 @@ Entra admin center > **Entra ID** > **Conditional Access** > **Policies** > **Ne
 | Setting | Value |
 |---|---|
 | Name | `CA-ADMIN-PhishResistantMFA` |
-| Users > Include | **Select users and groups** > **Directory roles** > the administrative roles in use (at minimum Global Administrator, Privileged Role Administrator, Security Administrator, Conditional Access Administrator, Intune Administrator, Exchange Administrator, SharePoint Administrator, User Administrator) |
+| Users > Include | **Select users and groups** > **Directory roles** > the administrative roles in use (at minimum Global Administrator, Application Administrator, Authentication Administrator, Billing Administrator, Cloud Application Administrator, Conditional Access Administrator, Exchange Administrator, Helpdesk Administrator, Intune Administrator, Password Administrator, Privileged Authentication Administrator, Privileged Role Administrator, Security Administrator, SharePoint Administrator, User Administrator) |
 | Users > Exclude | `sg-emergency-access` |
 | Target resources | **All resources** |
 | Grant | **Grant access** > **Require authentication strength** > **Phishing-resistant MFA strength** |
 | Enable policy | **Report-only** |
 
 Review in **Entra ID** > **Monitoring & health** > **Sign-in logs** > open an event > **Report-only** tab. When no legitimate administrator sign-in would fail, switch to **On**.
+
+Conditional Access directory-role targeting applies to built-in roles, not custom roles or administrative-unit-scoped role assignments. Use an appropriately scoped user or group assignment for administrators holding those roles.
 
 ### 4.4 Stage 2 and 3 policies
 
@@ -140,10 +142,12 @@ Entra admin center > **Entra ID** > **Identity Governance** > **Privileged Ident
 | On activation, require | **Azure MFA**, or **Microsoft Entra Conditional Access authentication context** (see 5.2) |
 | Require justification on activation | Yes |
 | Require ticket information | Optional; use the change log reference |
-| Require approval to activate | Global Administrator only; approver is the other administrator. Never leave the approver list empty, and never make every Global Administrator and Privileged Role Administrator assignment eligible with approval required without an active emergency account (see 3.2) |
+| Require approval to activate | Global Administrator only; approver is the other administrator. Microsoft recommends at least two approvers. With only two administrators, document the single-approver availability risk and how activation will be handled if that approver is unavailable. Never leave the approver list empty, and never make every Global Administrator and Privileged Role Administrator assignment eligible with approval required without an active emergency account (see 3.2) |
 | Notifications | Send to both administrators |
 | Allow permanent eligible assignment | No; set expiration (for example 12 months) |
 | Allow permanent active assignment | No (emergency accounts are assigned directly, outside PIM settings) |
+
+Keep the two emergency accounts as permanent active Global Administrators through direct assignment. The permanent-active restriction is for routine assignments; verify that both emergency assignments remain active after configuring PIM and during each access review. Emergency accounts are the recovery path, not routine PIM approvers.
 
 ### 5.2 Optional: stronger activation
 
@@ -154,7 +158,7 @@ Entra admin center > **Entra ID** > **Identity Governance** > **Privileged Ident
 ### 5.3 Convert permanent assignments to eligible
 
 1. PIM > **Microsoft Entra roles** > **Assignments** > **Active assignments**: list every permanent assignment.
-2. For each administrator: **Add assignments** > role > member > **Assignment type: Eligible** > set start and end dates.
+2. For each non-emergency administrator: **Add assignments** > role > member > **Assignment type: Eligible** > set start and end dates.
 3. Test activation with each administrator account in a new browser profile.
 4. Only after successful activation, remove the permanent active assignment (**Active assignments** > **Remove**). Keep the emergency accounts as permanent active.
 5. Verify that at most two to four people can activate Global Administrator, and that each role has the fewest assignees possible.
