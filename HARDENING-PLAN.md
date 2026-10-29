@@ -4,7 +4,7 @@
 
 *Fix the gaps, reduce privilege, enforce safely, then keep watching, with an impact check before each change.*
 
-**Five controls beyond the Phase 1 baseline, each mapped to an E7 license, a risk and a measurable outcome, sized so two admins can run it. Today, 1 of 10 checked accounts is MFA-capable; the target is 100%.**
+**Five controls beyond the Phase 1 baseline, each mapped to an E7 license, a risk and a measurable outcome, sized so two admins can run it. Today, 1 of 10 accounts checked by the assessment script is MFA-capable (not a full-tenant count); the target is 100%.**
 
 ---
 
@@ -55,7 +55,7 @@ This reduces operational drift and ensures the team can recover quickly if a con
 
 ## 2. Already in place (Phase 1 baseline)
 
-The following 10 controls are already in place, as verified by the Phase 1 assessment script:
+The following 10 controls are already in place. The assessment script detected 9 of them. SSPR set to All was operator-confirmed by the script default, not auto-detected:
 
 1. MFA for all users in administrative roles
 2. MFA for all users
@@ -66,7 +66,7 @@ The following 10 controls are already in place, as verified by the Phase 1 asses
 7. Teams: only invited users auto-admitted
 8. Teams: presenter role restricted
 9. Teams: anonymous join restricted
-10. Self-service password reset set to All
+10. Self-service password reset set to All (operator-confirmed, not auto-detected)
 
 This plan does not repeat these controls. It builds on them and targets what the Microsoft Digital Defense Report 2026 identifies as the next priorities: identity as the primary control plane, phishing-resistant authentication, tiered and least-privilege administration, session and token theft, and ungoverned AI agents.
 
@@ -181,7 +181,7 @@ The Phase 1 baseline covers the basics. This plan moves the customer from "contr
 
 | Measure | Baseline (measured) | Target |
 |---|---|---|
-| Accounts that are MFA-capable | 1 of 10 checked accounts (assessment script, October 29, 2026) | 100% |
+| Accounts that are MFA-capable | 1 of 10 accounts checked by the assessment script on October 29, 2026 (not a full-tenant count) | 100% |
 | Accounts with phishing-resistant MFA enabled and tested | Not yet measured | 100% |
 | Users with verified MFA registration | Not yet measured | 100% in scope |
 | Permanent admin role assignments | Not yet measured | Emergency accounts only |
@@ -191,7 +191,7 @@ The Phase 1 baseline covers the basics. This plan moves the customer from "contr
 | Time to triage a high-severity alert | Not yet measured | Same working day |
 | Emergency account use reviewed | Not yet measured | 100% within 1 business day |
 
-Only the MFA-capable baseline is a measured result; it comes from the Phase 1 assessment script. All targets are goals, not measured results. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
+Only the MFA-capable baseline is a measured result. It comes from the accounts the Phase 1 assessment script checked, not from a full-tenant count. All targets are goals, not measured results. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
 
 ## 8. Looking ahead
 
