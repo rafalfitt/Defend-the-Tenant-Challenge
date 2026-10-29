@@ -8,7 +8,7 @@
 
 ## 1. Customer scenario
 
-A services firm with about 100 users who work from anywhere and meet clients and partners in Teams. Two administrators also run day-to-day IT, and there is no SOC. The customer is licensed for Microsoft 365 E7 (Microsoft 365 E5, Microsoft 365 Copilot, Agent 365 and the Microsoft Entra Suite), so the gap is configuration and operations, not budget.
+A services firm with about 100 users who work from anywhere and meet clients and partners in Teams. Two administrators also run day-to-day IT, and there is no SOC. The customer is licensed for Microsoft 365 E7 with Microsoft Entra ID P2 / Entra Suite capabilities and Microsoft 365 Copilot and agent governance features available in the tenant, so the gap is configuration and operations, not budget.
 
 Main risks:
 
@@ -54,7 +54,7 @@ This plan does not repeat these controls. It builds on them and targets what the
 | 1 | Phishing-resistant MFA and passkeys: admins first, then executives and finance, then everyone | Entra ID P2 (Authentication Strengths), Temporary Access Pass |
 | 2 | Privileged access: eligible-only admin roles, two monitored emergency accounts, recurring access reviews | Entra ID P2 (PIM), Entra ID Governance (Entra Suite) |
 | 3 | Session and token protection: compliant-device access for sensitive apps, block device-code flow where not needed | Conditional Access, Intune |
-| 4 | Governed apps and AI agents: named owners, admin consent workflow, least privilege, quarterly review | Entra admin consent workflow, Agent 365 |
+| 4 | Governed apps and AI agents: named owners, admin consent workflow, least privilege, quarterly review | Microsoft Entra admin consent workflow, app governance, Microsoft 365 Copilot/agent governance |
 | 5 | Detection and response for a team of two: Safe Links and QR-phishing protection, automatic attack disruption, alerts to both admins | Defender XDR, Defender for Office 365 |
 
 ## 4. Control detail
@@ -82,9 +82,9 @@ This plan does not repeat these controls. It builds on them and targets what the
 
 ### Control 4: Governed apps and AI agents
 
-- **Risk addressed:** over-privileged apps and agents hold long-lived access that is rarely reviewed. Copilot extensions and agents increasingly request broad Microsoft Graph permissions.
+- **Risk addressed:** over-privileged apps and agents hold long-lived access that is rarely reviewed. Copilot extensions and other agent experiences can request broad Microsoft Graph permissions if not governed carefully.
 - **Why it matters:** user consent is already blocked in the baseline, but existing grants are not revoked by that setting. Governance closes the remaining gap.
-- **Rollout:** run the admin consent workflow, assign a named owner and purpose to every app and agent, review existing grants, and repeat the review quarterly.
+- **Rollout:** run the Microsoft Entra admin consent workflow, assign a named owner and purpose to every app and agent, review existing grants, and repeat the review quarterly.
 - **Tradeoffs:** approval delays. Mitigated by a short approver SLA and a pre-approved list.
 
 ### Control 5: Detection and response for a team of two
