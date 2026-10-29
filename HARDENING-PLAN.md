@@ -4,6 +4,8 @@
 
 *Fix the gaps, reduce privilege, enforce safely, then keep watching, with an impact check before each change.*
 
+**Five controls beyond the Phase 1 baseline, each mapped to an E7 license, a risk and a measurable outcome, sized so two admins can run it. Today, 1 of 10 checked accounts is MFA-capable; the target is 100%.**
+
 ---
 
 ## 1. Customer scenario
@@ -175,20 +177,21 @@ This keeps the review from becoming a vague “check the portal” exercise.
 
 The Phase 1 baseline covers the basics. This plan moves the customer from "controls configured" to "controls that hold under attack": credentials cannot be replayed, a stolen admin account or session does limited damage, apps and agents cannot hold silent access, and threats are contained quickly without a SOC. The result is a smaller attack surface, a shorter attacker dwell time, and a plan that stays maintainable by two people. The approach follows Zero Trust principles: verify explicitly, use least privilege, and assume breach.
 
-### Success measures (targets, reviewed monthly)
+### Success measures (reviewed monthly)
 
-| Measure | Target |
-|---|---|
-| Accounts with phishing-resistant MFA enabled and tested | 100% for admins, executives and finance; 95%+ for all users after rollout |
-| Users with verified MFA registration | 100% in scope |
-| Permanent admin role assignments | Emergency accounts only |
-| PIM role assignments with reviewed activation and reason | 100% |
-| Unreviewed app and agent grants | 0 |
-| Exceptions with owner, expiry and review date | 100% |
-| Time to triage a high-severity alert | Same working day |
-| Emergency account use reviewed | 100% within 1 business day |
+| Measure | Baseline (measured) | Target |
+|---|---|---|
+| Accounts that are MFA-capable | 1 of 10 checked accounts (assessment script, October 29, 2026) | 100% |
+| Accounts with phishing-resistant MFA enabled and tested | Not yet measured | 100% |
+| Users with verified MFA registration | Not yet measured | 100% in scope |
+| Permanent admin role assignments | Not yet measured | Emergency accounts only |
+| PIM role assignments with reviewed activation and reason | Not yet measured | 100% |
+| Unreviewed app and agent grants | Not yet measured | 0 |
+| Exceptions with owner, expiry and review date | Not yet measured | 100% |
+| Time to triage a high-severity alert | Not yet measured | Same working day |
+| Emergency account use reviewed | Not yet measured | 100% within 1 business day |
 
-Targets are goals, not measured results. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
+Only the MFA-capable baseline is a measured result; it comes from the Phase 1 assessment script. All targets are goals, not measured results. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
 
 ## 8. Looking ahead
 
