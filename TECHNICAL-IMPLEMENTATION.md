@@ -33,12 +33,15 @@ Entra admin center > **Entra ID** > **Groups** > **All groups** > **New group** 
 | Group | Purpose |
 |---|---|
 | `sg-emergency-access` | The two emergency accounts; excluded from Conditional Access policies that block or restrict sign-in |
+| `sg-admins-phishresistant` | Human administrator accounts that must be enrolled before the admin phishing-resistant MFA policy is enforced; keep membership aligned with the roles targeted by that policy |
 | `sg-pilot-passkeys` | Pilot users for phishing-resistant MFA |
 | `sg-priority-accounts` | Executives and finance (Strict preset, stage 2 of passkey rollout) |
 | `sg-pilot-compliant-device` | Pilot users for the compliant-device policy |
 | `sg-ca-exception-device-code` | Documented exceptions for device code flow (starts empty) |
 | `sg-ca-exception-compliant-device` | Documented exceptions for the compliant-device policy (starts empty) |
 | `sg-security-alerts` | Membership list of both administrators (for example for Azure Monitor action groups and ownership records). Defender notification rules use explicit mailbox addresses, not this group |
+
+Populate `sg-admins-phishresistant` with every human account covered by the administrator directory-role targeting in 4.3, including custom-role or administrative-unit-scoped administrators that directory-role targeting may not cover. Review the membership against current role assignments before enforcing the policy and whenever roles change.
 
 Every exception group member needs a recorded owner, reason and expiry date in the change log.
 
@@ -72,7 +75,7 @@ This procedure follows the [Monitor sign-in and audit logs](https://learn.micros
    | project TimeGenerated, UserPrincipalName, UserId, IPAddress, ResultType, ResultDescription
    ```
 
-5. **Measurement**: choose the measure, aggregation type and granularity. Under **Split by dimensions**, select the **Resource ID column**. **Alert logic**: threshold type **Static**, operator **Greater than**, threshold value **0**, frequency of evaluation as often as the administrators want the query to run.
+5. **Measurement**: measure **Table rows** using **Count**. Set the alert logic to **Static**, **Greater than**, **0**. Do not split by **Resource ID**: the query does not return that column, and one rule covers both emergency accounts. Choose an evaluation frequency that accounts for sign-in log ingestion delay and the required response time.
 6. **Actions** tab: select or create an action group (**Notification type**: **Email/SMS message/Push/Voice**; add both administrators; use a display name of at most 12 characters).
 7. **Details** tab: **Severity**: **0 - Critical**; name the rule; select the region and identity used to run the query; under **Advanced options** select **Enable upon creation**.
 8. **Review + create** > **Create**.
@@ -88,12 +91,12 @@ Entra admin center > **Entra ID** > **Authentication methods** > **User registra
 
 ## 4. Control 1: Phishing-resistant MFA and passkeys
 
-**Gate:** 100% of in-scope accounts MFA-capable and registered with an approved phishing-resistant method before the policy for that group is switched on.
+**Gate:** 100% of in-scope human accounts are registered with an approved phishing-resistant method before the policy for that group is switched on. Report-only can begin earlier; do not enforce while users still need enrollment or recovery support.
 
 ### 4.1 Enable the methods
 
 1. Entra admin center > **Entra ID** > **Authentication methods** > **Policies**.
-2. Select **Passkey (FIDO2)** > **Enable** > target: **Select groups** > `sg-pilot-passkeys` (later add `sg-priority-accounts`, then all users). Save.
+2. Select **Passkey (FIDO2)** > **Enable** > target: **Select groups** > `sg-admins-phishresistant` and `sg-pilot-passkeys` (later add `sg-priority-accounts`, then all users). Save.
 3. Select **Temporary Access Pass** > **Enable** > target the same groups. Set the lifetime to the shortest value that supports onboarding (for example 1 hour, one-time use). Save.
 4. Windows Hello for Business: configure through Intune (Intune admin center > **Devices** > **Enroll devices** > **Windows enrollment** > **Windows Hello for Business**).
 5. Optional: **Authentication methods** > **Registration campaign** to prompt users to register a passkey.
@@ -124,7 +127,7 @@ Conditional Access directory-role targeting applies to built-in roles, not custo
 Clone the policy twice:
 
 - `CA-PRIORITY-PhishResistantMFA`: include `sg-priority-accounts`.
-- `CA-ALLUSERS-PhishResistantMFA`: include **All users**; exclude `sg-emergency-access`; start in Report-only only after at least 95% of users hold a registered passkey or Windows Hello credential (the remainder must be explained).
+- `CA-ALLUSERS-PhishResistantMFA`: include **All users**; exclude `sg-emergency-access`. Start in Report-only after validating scope and exclusions; switch to **On** only after all in-scope human users have registered an approved method, sign-in testing shows no unresolved legitimate failures, and the recovery process has been exercised. Track enrollment gaps rather than treating 95% coverage as an enforcement gate.
 
 **Tradeoff and mitigation:** enrollment effort and lost-device recovery. Mitigation: staged groups, Temporary Access Pass, and a written recovery procedure (helpdesk identity verification before issuing a pass).
 
@@ -159,8 +162,8 @@ Keep the two emergency accounts as permanent active Global Administrators throug
 
 1. PIM > **Microsoft Entra roles** > **Assignments** > **Active assignments**: list every permanent assignment.
 2. For each non-emergency administrator: **Add assignments** > role > member > **Assignment type: Eligible** > set start and end dates.
-3. Test activation with each administrator account in a new browser profile.
-4. Only after successful activation, remove the permanent active assignment (**Active assignments** > **Remove**). Keep the emergency accounts as permanent active.
+3. Convert and validate one administrator at a time. Add the eligible assignment, remove that administrator's permanent active assignment, then test activation and an administrative task in a new browser profile. Keep the second administrator active during this test; retain the emergency accounts as the recovery path.
+4. After the first administrator's activation succeeds, repeat for the second administrator. If activation fails, restore that administrator's active assignment through the other administrator or an emergency account, troubleshoot, and retest before proceeding.
 5. Verify that at most two to four people can activate Global Administrator, and that each role has the fewest assignees possible.
 
 ### 5.4 Recurring access review
@@ -171,11 +174,12 @@ Keep the two emergency accounts as permanent active Global Administrators throug
 
 | Setting | Value |
 |---|---|
-| Scope | Privileged roles (all, or Global Administrator and Privileged Role Administrator first) |
+| Scope | Routine privileged role assignments (all, or Global Administrator and Privileged Role Administrator first); exclude emergency accounts from automated removal and verify them separately |
 | Reviewers | The other administrator (administrators do not approve their own access) |
 | Frequency | Quarterly |
 | Duration | 14 days |
-| If reviewers do not respond | **No change** for the first two cycles; evaluate stricter handling after that |
+| If reviewers do not respond | **Remove access** for routine privileged assignments after the review closes; exclude emergency accounts from automated removal and verify their permanent active assignments separately. Escalate overdue reviews before closure so an unavailable reviewer does not silently preserve routine access. |
+| Apply results | Enable automatic application of results where supported; otherwise assign an administrator to apply and verify decisions within one business day of review closure |
 | Require reason | Yes |
 
 **Tradeoff:** one extra activation step per privileged task. Mitigation: documented activation rules and pre-planned maintenance windows.
@@ -208,7 +212,7 @@ Intune admin center > **Devices** > **Compliance** > **Policies** > **Create pol
 | Device Properties | Minimum OS version aligned to the supported Windows 11 release |
 | System Security | Require firewall; require antivirus and anti-spyware; require password to unlock |
 | Microsoft Defender for Endpoint | **Require the device to be at or under the machine risk score**: **Medium** (pilot value; see the threshold table below) |
-| Actions for noncompliance | Mark noncompliant immediately; send email at day 1; retire after a documented period |
+| Actions for noncompliance | Mark noncompliant immediately; notify the user and administrator; allow a documented remediation grace period. Do not configure automatic retirement in the initial pilot. Consider it separately only after device ownership scope, impact, and rollback have been tested. |
 
 Assign to the device or user groups. Create equivalent policies for iOS/iPadOS and Android only if those platforms access sensitive apps.
 
@@ -234,7 +238,7 @@ Microsoft's integration guide recommends **Low** as the best balance of security
 | Grant | **Require device to be marked as compliant** |
 | Enable policy | **Report-only** |
 
-Wait at least 24 hours for sign-in data to accumulate, then review the **Report-only** results in the sign-in logs. Plan for personal devices: either enroll them, give access through a browser-only policy with session controls, or place the user in the documented exception group with an expiry date.
+Wait for at least 7 calendar days of representative sign-in data, including normal business workflows, then review the **Report-only** results. Also test each supported platform, client, and sensitive resource with both compliant and noncompliant devices; report-only results cover observed sign-ins and are not proof that unobserved workflows will work. Do not enforce until there are no unexplained legitimate failures and support and rollback paths have been tested. Plan for personal devices: either enroll them, provide browser-only access with appropriate session controls, or approve a narrowly scoped, time-limited exception with a named owner and compensating controls.
 
 ### 6.4 Conditional Access: block device code flow
 
@@ -245,7 +249,7 @@ Wait at least 24 hours for sign-in data to accumulate, then review the **Report-
 5. **Grant** > **Block access**.
 6. **Enable policy**: **Report-only** > **Create**.
 
-Before enforcement, run **Sign-in logs** filtered by **Authentication protocol: Device code** over at least 14 days. Typical legitimate users are Azure CLI or PowerShell device logins, conference-room devices and some line-of-business tools. Move each legitimate case to the exception group with an owner and expiry date, or constrain it with a separate allow-style policy (for example by network location). Then set the policy to **On**.
+Before enforcement, run **Sign-in logs** filtered by **Authentication protocol: Device code** over at least 14 days. Typical legitimate users are Azure CLI or PowerShell device logins, conference-room devices and some line-of-business tools. Prefer replacing device-code use with a supported alternative. If an exception is unavoidable, add only the required accounts to `sg-ca-exception-device-code`, with an owner, reason, expiry, and compensating controls; recognize that excluding an account exempts its device-code sign-ins from this block policy across all resources. A separate grant policy cannot override a matching block policy. Where the use case permits, add a second block policy for the exception group that blocks device-code flow except from a tightly controlled trusted named location. Re-review exceptions before enabling the broad block policy and at each expiry.
 
 **Limits:** these policies reduce exposure; they do not invalidate every token already stolen. Revoke sessions for a suspected compromised user with **Users** > select user > **Revoke sessions**.
 

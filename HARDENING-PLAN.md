@@ -19,6 +19,38 @@ Main risks:
 
 Design constraint: every control must be small enough for two people to deploy and keep running.
 
+## 1.5 Operational guardrails for a two-admin environment
+
+Because there is no SOC, every control must be simple enough to validate, log, and reverse quickly. The plan assumes that no policy is enforced unless the following are in place:
+
+- A recorded impact review before the change is enabled.
+- A pilot or testing group, with no critical business service left unassessed.
+- A documented rollback procedure and a test of that rollback path.
+- A list of exceptions with an owner, reason, expiry date, and review cadence.
+- A shared change log that records what changed, who approved it, and when it was reviewed.
+
+Every Conditional Access policy starts in report-only mode, and every exception stays temporary. The default assumption is to remove access when the business need expires, not to leave permanent carve-outs. This is the operational discipline needed to keep a no-SOC environment sustainable.
+
+### Exception and rollback process
+
+For every control that restricts access, the admins should maintain a short exception register with:
+
+- Exception name and scope
+- Business owner
+- Risk justification
+- Requested start and end date
+- Approval by the second administrator
+- Review date and final decision
+
+Rollback must be explicit:
+
+- for Conditional Access, return the policy to report-only or disable it
+- for device compliance, revert the policy assignment or tighten the group scope
+- for app or agent restrictions, revoke the consent or remove the assignment
+- for role changes, restore the prior assignment and revalidate access before closing the ticket
+
+This reduces operational drift and ensures the team can recover quickly if a control blocks an essential workflow.
+
 ## 2. Already in place (Phase 1 baseline)
 
 The following 10 controls are already in place, as verified by the Phase 1 assessment script:
@@ -108,10 +140,26 @@ Every change follows the same cycle: **check impact, pilot, enforce, monitor.** 
 ### Operating rhythm for two admins
 
 - **Weekly (about 15 minutes):** triage Defender and risky-user alerts.
-- **Monthly (about 2 hours):** review PIM activations, Conditional Access changes, consent and agent requests, and the success measures below.
-- **Quarterly:** review admin roles, apps and agents.
+- **Monthly (about 2 hours):** review PIM activations, Conditional Access changes, consent and agent requests, emergency-account use, and the success measures below.
+- **Quarterly:** review admin roles, apps and agents, and expire stale exceptions.
 
 Each item has an owner and a log entry.
+
+### Monthly review checklist
+
+The two admins should use the same checklist every month to keep the plan manageable and defensible:
+
+- PIM activations and approvals
+- Emergency account use and alerts
+- Conditional Access changes and exception register
+- Risky sign-ins and user-risk remediation outcomes
+- New app consent or AI agent requests
+- Unreviewed or stale app and agent grants
+- Defender alerts and containment actions
+- Passkey or phishing-resistant MFA registration status
+- Any support issue caused by policy enforcement
+
+This keeps the review from becoming a vague “check the portal” exercise.
 
 ## 6. Security risk to customer impact
 
@@ -131,12 +179,16 @@ The Phase 1 baseline covers the basics. This plan moves the customer from "contr
 
 | Measure | Target |
 |---|---|
-| Accounts that are MFA-capable | 100% |
+| Accounts with phishing-resistant MFA enabled and tested | 100% for admins, executives and finance; 95%+ for all users after rollout |
+| Users with verified MFA registration | 100% in scope |
 | Permanent admin role assignments | Emergency accounts only |
+| PIM role assignments with reviewed activation and reason | 100% |
 | Unreviewed app and agent grants | 0 |
+| Exceptions with owner, expiry and review date | 100% |
 | Time to triage a high-severity alert | Same working day |
+| Emergency account use reviewed | 100% within 1 business day |
 
-Targets are goals, not measured results.
+Targets are goals, not measured results. The team should not treat a target as met by policy presence alone; the review must confirm actual user registration, real sign-in testing, and completed exception reviews.
 
 ## 8. Looking ahead
 
